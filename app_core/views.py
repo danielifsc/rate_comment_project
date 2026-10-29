@@ -3,6 +3,10 @@ from django.shortcuts import render
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
+try:
+    nltk.data.find('sentiment/vader_lexicon.zip')
+except LookupError:
+    nltk.download('vader_lexicon')
 
 
 sia = SentimentIntensityAnalyzer()
@@ -20,7 +24,6 @@ def home(request):
         print(f"Antes de renderizar 2{result}")
         return render(request, 'home.html', {'result': result})
     return render(request, 'home.html')
-
 
 def analyze_user_comment(text):
 

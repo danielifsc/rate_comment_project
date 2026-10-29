@@ -1,12 +1,12 @@
+--prefer-binary
 asgiref==3.8.1
 Django==5.1.2
 sqlparse==0.5.1
 tzdata==2024.2
-psycopg2-binary==2.9.9
 gunicorn==23.0.0
 whitenoise==6.7.0
-Pillow==11.0.0
 django-bootstrap5==24.3
 nltk==3.9.1
-pandas==2.2.3
-matplotlib==3.10.0
+pandas
+matplotlib
+Pillow

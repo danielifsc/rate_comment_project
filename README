@@ -1,0 +1,13 @@
+python -m venv venv
+
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+./venv/Scripts/activate.ps1
+
+pip install -r requirements.txt 
+
+python -m nltk.downloader vader_lexicon
+
+python manage.py makemigrations
+
+python manage.py migrate 
