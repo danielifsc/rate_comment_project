@@ -1,68 +1,112 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Avaliação de Comentários - VADER</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  </head>
+  <body class="bg-light">
     <div class="container py-5">
-        <h2 class="mb-4">Análise de Sentimento de Comentário (VADER)</h2>
+      <h2 class="mb-4">Análise de Sentimento de Comentário (VADER)</h2>
 
-        <!-- Formulário para digitação do comentário -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <form method="POST" >
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="comment_text" class="form-label fw-bold">Digite seu comentário sobre o livro:</label>
-                        <textarea class="form-control" id="comment_text" name="comment_text" rows="4" placeholder="Ex: This book was absolutely amazing! Highly recommended." required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Analisar Sentimento</button>
-                </form>
+      <!-- Formulário para digitação do comentário -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <form method="POST">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="comment_text" class="form-label fw-bold">Digite seu comentário sobre o livro:</label>
+              <textarea class="form-control" id="comment_text" name="comment_text" rows="4" placeholder="Ex: This book was absolutely amazing! Highly recommended." required>{{ comment }}</textarea>
             </div>
+            <button type="submit" class="btn btn-primary">Analisar Sentimento</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Exibição do Resultado -->
+      {% if result %}
+        <div class="card shadow-sm border-primary">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Resultado da Avaliação (Não Processado)</h5>
+            <span class="badge bg-light text-dark fs-6">{{ result.sentiment_normal }}</span>
+          </div>
+          <div class="card-body">
+            <p>
+              <strong>Comentário analisado:</strong> "{{ result.original_text }}"
+            </p>
+
+            <h6 class="mt-4">Detalhamento dos Scores do VADER:</h6>
+            <div class="row text-center mt-2">
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Positivo</small>
+                  <strong>{{ result.scores_normal.pos }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Neutro</small>
+                  <strong>{{ result.scores_normal.neu }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Negativo</small>
+                  <strong>{{ result.scores_normal.neg }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-primary text-white">
+                  <small class="d-block">Compound (Global)</small>
+                  <strong>{{ result.scores_normal.compound }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Exibição do Resultado -->
-        {% if result %}
-            <div class="card shadow-sm border-primary">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Resultado da Avaliação</h5>
-                    <span class="badge bg-light text-dark fs-6">{{ result.sentiment }}</span>
+        <br>
+
+        <div class="card shadow-sm border-primary">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Resultado da Avaliação (Processado)</h5>
+            <span class="badge bg-light text-dark fs-6">{{ result.sentiment_processado }}</span>
+          </div>
+          <div class="card-body">
+            <p>
+              <strong>Comentário processado:</strong> "{{ result.texto_limpo }}"
+            </p>
+            <h6 class="mt-4">Detalhamento dos Scores do VADER:</h6>
+
+            <div class="row text-center mt-2">
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Positivo</small>
+                  <strong>{{ result.scores_processado.pos }}</strong>
                 </div>
-                <div class="card-body">
-                    <p><strong>Comentário analisado:</strong> "{{ result.original_text }}"</p>
-                    
-                    <h6 class="mt-4">Detalhamento dos Scores do VADER:</h6>
-                    <div class="row text-center mt-2">
-                        <div class="col-md-3">
-                            <div class="p-2 border rounded bg-light">
-                                <small class="text-muted d-block">Positivo</small>
-                                <strong>{{ result.scores.pos }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-2 border rounded bg-light">
-                                <small class="text-muted d-block">Neutro</small>
-                                <strong>{{ result.scores.neu }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-2 border rounded bg-light">
-                                <small class="text-muted d-block">Negativo</small>
-                                <strong>{{ result.scores.neg }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="p-2 border rounded bg-primary text-white">
-                                <small class="d-block">Compound (Global)</small>
-                                <strong>{{ result.scores.compound }}</strong>
-                            </div>
-                        </div>
-                    </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Neutro</small>
+                  <strong>{{ result.scores_processado.neu }}</strong>
                 </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-light">
+                  <small class="text-muted d-block">Negativo</small>
+                  <strong>{{ result.scores_processado.neg }}</strong>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="p-2 border rounded bg-primary text-white">
+                  <small class="d-block">Compound (Global)</small>
+                  <strong>{{ result.scores_processado.compound }}</strong>
+                </div>
+              </div>
             </div>
-        {% endif %}
+          </div>
+        </div>
+      {% endif %}
     </div>
-</body>
+  </body>
 </html>

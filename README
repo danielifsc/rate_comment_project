@@ -11,3 +11,5 @@ python -m nltk.downloader vader_lexicon
 python manage.py makemigrations
 
 python manage.py migrate 
+
+python manage.py runserver 8000 (ou 8080)
