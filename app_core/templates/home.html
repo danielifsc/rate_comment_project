@@ -116,140 +116,298 @@
         <br>
         <hr>
 
-        <div class="card shadow-sm mt-4">
-          <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-            <span class="fw-bold small text-muted">DataFrame</span>
 
-            <button type="button" id="toggleTextBtn" class="btn btn-sm btn-outline-secondary">🔍 Expandir Texto Completo</button>
-          </div>
-
-          <div class="card-body p-2">
-            <div class="jupyter-output" id="jupyterContainer">{{ df_html|safe }}</div>
-          </div>
-        </div>
       {% endif %}
+
+      <div class="card shadow-sm mt-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+          <span class="fw-bold small text-muted">DataFrame</span>
+
+          <button type="button" id="toggleTextBtn" class="btn btn-sm btn-outline-secondary">🔍 Expandir Texto Completo</button>
+        </div>
+
+        <div class="card-body p-2">
+           <div class="jupyter-output" id="jupyterContainer">{{ df_html|safe }}</div>
+         </div>
+      </div>
+
      <!-- Seção: Dashboard de Análise Exploratória -->
       <div class="container my-5">
-          <h3 class="mb-4 fw-bold text-secondary">📊 Insights do Dataset</h3>
+          <h2 class="mb-4 fw-bold text-dark border-bottom pb-2">📊 Amazon Book Rating - Análise Completa</h2>
 
-          <!-- Cards de Totais (Visão Rápida) -->
-          <div class="row g-3 mb-4">
-              <div class="col-md-3">
-                  <div class="card bg-primary text-white border-0 shadow-sm h-100 p-3">
-                      <h6 class="text-uppercase opacity-75 mb-1">Total de Avaliações</h6>
-                      <h2 class="fw-bold mb-0">{{ eda.total_avaliacoes|default:"0" }}</h2>
-                  </div>
-              </div>
-              <div class="col-md-4">
-                  <div class="card bg-success text-white border-0 shadow-sm h-100 p-3">
-                      <h6 class="text-uppercase opacity-75 mb-1">Livro Mais Caro</h6>
-                      {% if eda.livro_mais_caro %}
-                          <h5 class="fw-bold mb-0 text-truncate" title="{{ eda.livro_mais_caro.titulo }}">{{ eda.livro_mais_caro.titulo }}</h5>
-                          <small>Preço: ${{ eda.livro_mais_caro.preco }}</small>
-                      {% else %}
-                          <h5 class="fw-bold mb-0">-</h5>
-                      {% endif %}
-                  </div>
-              </div>
-              <div class="col-md-5">
-                  <div class="card bg-info text-dark border-0 shadow-sm h-100 p-3">
-                      <h6 class="text-uppercase opacity-75 mb-1">Balanço de Sentimento</h6>
-                      <h6 class="fw-bold mb-0 mt-2">{{ eda.comentario_sentimento }}</h6>
-                  </div>
-              </div>
-          </div>
-
-          <div class="row g-4">
-              <!-- Coluna Esquerda (Comportamento e Tendências) -->
-              <div class="col-lg-6">
-                  
-                  <!-- Avaliações Mais Úteis -->
-                  <div class="card border-0 shadow-sm mb-4">
-                      <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                          <h5 class="fw-bold">⭐ Avaliações Marcadas como Mais Úteis</h5>
+          <!-- BLOCO 1: DIMENSÕES E QUALIDADE (Cards Horizontais) -->
+          <div class="card shadow-sm border-0 mb-4 bg-light">
+              <div class="card-body">
+                  <div class="row align-items-center">
+                      <div class="col-md-4 border-end">
+                          <h5 class="fw-bold mb-3">1. Dimensões do Dataset</h5>
+                          <div class="d-flex justify-content-between mb-2 border-bottom pb-1">
+                              <span class="text-muted">Linhas (Avaliações):</span>
+                              <strong class="text-dark">{{ eda.total_linhas }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between mb-2 border-bottom pb-1">
+                              <span class="text-muted">Colunas:</span>
+                              <strong class="text-dark">{{ eda.total_colunas }}</strong>
+                          </div>
+                          <div class="d-flex justify-content-between">
+                              <span class="text-muted">Livros Únicos:</span>
+                              <strong class="text-dark">{{ eda.livros_unicos }}</strong>
+                          </div>
                       </div>
-                      <div class="card-body">
-                          {% for util in eda.avaliacoes_uteis %}
-                              <div class="mb-3 border-bottom pb-2">
-                                  <div class="d-flex justify-content-between align-items-center mb-1">
-                                      <strong class="text-primary text-truncate" style="max-width: 70%;">{{ util.titulo }}</strong>
-                                      <span class="badge bg-warning text-dark">Nota: {{ util.score }}</span>
+                      
+                      <div class="col-md-8 ps-md-4 pt-3 pt-md-0">
+                          <h5 class="fw-bold mb-3">2. Qualidade dos Dados</h5>
+                          <div class="d-flex flex-column gap-2">
+                              <div class="d-flex align-items-start">
+                                  <strong class="me-2" style="min-width: 100px;">Nulos:</strong>
+                                  <div>
+                                      {% for item in eda.dados_faltantes %}
+                                          <span class="badge bg-danger me-1 mb-1">{{ item.coluna }}: {{ item.qtd }} ({{ item.prop }}%)</span>
+                                      {% empty %}
+                                          <span class="badge bg-success">Nenhum dado faltante</span>
+                                      {% endfor %}
                                   </div>
-                                  <p class="small text-muted mb-1"><em>"{{ util.texto }}"</em></p>
-                                  <small class="text-success fw-bold">✓ Útil para {{ util.helpfulness }} pessoas</small>
                               </div>
-                          {% empty %}
-                              <p class="text-muted">Não há dados suficientes sobre utilidade.</p>
-                          {% endfor %}
-                      </div>
-                  </div>
-
-                  <!-- Usuários Mais Ativos -->
-                  <div class="card border-0 shadow-sm">
-                      <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                          <h5 class="fw-bold">👤 Top Usuários & Padrões</h5>
-                      </div>
-                      <div class="card-body">
-                          <p class="small bg-light p-2 rounded text-secondary border-start border-4 border-info">
-                              <strong>Insight:</strong> {{ eda.padrao_usuarios }}
-                          </p>
-                          <ul class="list-group list-group-flush">
-                              {% for user in eda.top_10_users %}
-                                  <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                      <span>{{ user.usuario }}</span>
-                                      <span class="badge bg-secondary rounded-pill">{{ user.qtd }} resenhas</span>
-                                  </li>
-                              {% endfor %}
-                          </ul>
-                      </div>
-                  </div>
-
-              </div>
-
-              <!-- Coluna Direita (Gráficos e Tempo) -->
-              <div class="col-lg-6">
-                  
-                  <!-- Picos de Avaliações -->
-                  <div class="card border-0 shadow-sm mb-4">
-                      <div class="card-body d-flex justify-content-between align-items-center">
-                          <div>
-                              <h6 class="fw-bold mb-1">📈 Meses com Mais Avaliações (Picos)</h6>
-                              <div class="d-flex gap-2 mt-2">
-                                  {% for mes in eda.meses_mais_ativos %}
-                                      <span class="badge bg-dark">{{ mes.periodo }} ({{ mes.qtd }})</span>
-                                  {% endfor %}
+                              <div class="d-flex align-items-start">
+                                  <strong class="me-2" style="min-width: 100px;">Tipos:</strong>
+                                  <p class="mb-0 small text-muted lh-sm">
+                                      {% for item in eda.tipos_dados %}
+                                          <span class="me-2"><strong>{{ item.coluna }}</strong>: {{ item.tipo }} |</span> 
+                                      {% endfor %}
+                                  </p>
                               </div>
                           </div>
                       </div>
                   </div>
-
-                  <!-- Gráficos -->
-                  <div class="card border-0 shadow-sm mb-4">
-                      <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                          <h5 class="fw-bold">📊 Distribuição das Notas</h5>
-                      </div>
-                      <div class="card-body text-center">
-                          {% if eda.grafico_notas %}
-                              <img src="data:image/png;base64,{{ eda.grafico_notas }}" class="img-fluid rounded">
-                          {% endif %}
-                      </div>
-                  </div>
-
-                  <div class="card border-0 shadow-sm">
-                      <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                          <h5 class="fw-bold">📅 Evolução Histórica</h5>
-                      </div>
-                      <div class="card-body text-center">
-                          {% if eda.grafico_temporal %}
-                              <img src="data:image/png;base64,{{ eda.grafico_temporal }}" class="img-fluid rounded">
-                          {% endif %}
-                      </div>
-                  </div>
-
               </div>
           </div>
+
+          <!-- BLOCO 2: ESTATÍSTICAS PRINCIPAIS (Cards Horizontais em Grid) -->
+          <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                  <div class="card bg-primary text-white border-0 shadow-sm h-100">
+                      <div class="card-body d-flex justify-content-between align-items-center">
+                          <div>
+                              <h6 class="opacity-75 mb-1 text-uppercase">Preço Médio</h6>
+                              <small>Livros gratuitos: {{ eda.livros_preco_zero }}</small>
+                          </div>
+                          <h2 class="fw-bold mb-0">${{ eda.preco_medio }}</h2>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card bg-success text-white border-0 shadow-sm h-100">
+                      <div class="card-body d-flex justify-content-between align-items-center">
+                          <div style="max-width: 70%;">
+                              <h6 class="opacity-75 mb-1 text-uppercase">Livro Mais Caro</h6>
+                              <h5 class="fw-bold mb-0 text-truncate" title="{{ eda.livro_mais_caro }}">{{ eda.livro_mais_caro }}</h5>
+                          </div>
+                          <h3 class="fw-bold mb-0 text-end">${{ eda.preco_mais_caro }}</h3>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card bg-info text-dark border-0 shadow-sm h-100">
+                      <div class="card-body d-flex justify-content-between align-items-center">
+                          <div>
+                              <h6 class="opacity-75 mb-1 text-uppercase">Estatísticas de Notas</h6>
+                              <small>Mediana: {{ eda.mediana_notas }} | Desvio: {{ eda.desvio_notas }}</small>
+                          </div>
+                          <h3 class="fw-bold mb-0">Média: {{ eda.media_notas }}</h3>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card bg-warning text-dark border-0 shadow-sm h-100">
+                      <div class="card-body d-flex justify-content-between align-items-center">
+                          <div>
+                              <h6 class="opacity-75 mb-1 text-uppercase">Avaliações por Livro</h6>
+                              <small>Média de contribuição</small>
+                          </div>
+                          <h2 class="fw-bold mb-0">{{ eda.media_avals_por_livro }}</h2>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- BLOCO 3: INSIGHTS (Lista Horizontal) -->
+          <div class="card shadow-sm border-0 mb-4">
+              <div class="card-header bg-white fw-bold">🧠 Insights Analíticos</div>
+              <div class="list-group list-group-flush">
+                  <div class="list-group-item d-flex align-items-center py-3">
+                      <strong class="me-3 text-primary" style="min-width: 150px;">3. Colunas Relevantes:</strong>
+                      <span class="text-muted small">{{ eda.analise_colunas }}</span>
+                  </div>
+                  <div class="list-group-item d-flex align-items-center py-3">
+                      <strong class="me-3 text-primary" style="min-width: 150px;">Padrão de Usuários:</strong>
+                      <span class="text-muted small">{{ eda.padrao_usuarios }}</span>
+                  </div>
+                  <div class="list-group-item d-flex align-items-center py-3">
+                      <strong class="me-3 text-primary" style="min-width: 150px;">Preço vs Nota:</strong>
+                      <span class="text-muted small">Correlação: {{ eda.correlacao_preco_nota }} — {{ eda.analise_correlacao }}</span>
+                  </div>
+                  <div class="list-group-item d-flex align-items-center py-3">
+                      <strong class="me-3 text-primary" style="min-width: 150px;">Sentimento:</strong>
+                      <span class="text-muted small">{{ eda.comentario_sentimento }}</span>
+                  </div>
+              </div>
+          </div>
+
+          <!-- BLOCO 4: RANKINGS E AVALIAÇÕES ÚTEIS (Linhas Horizontais) -->
+          <div class="row g-4 mb-4">
+              <div class="col-lg-6">
+                  <div class="card shadow-sm border-0 h-100">
+                      <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                          <span>🏆 Top 10 Livros</span>
+                          <span>Avaliações</span>
+                      </div>
+                      <div class="list-group list-group-flush small">
+                          {% for livro in eda.top_10_livros %}
+                              <div class="list-group-item d-flex justify-content-between align-items-center border-bottom-0">
+                                  <span class="text-truncate" style="max-width: 85%;">{{ forloop.counter }}. {{ livro.titulo }}</span>
+                                  <span class="badge bg-primary rounded-pill">{{ livro.qtd_avaliacoes }}</span>
+                              </div>
+                          {% endfor %}
+                      </div>
+                  </div>
+              </div>
+
+              <div class="col-lg-6">
+                  <div class="card shadow-sm border-0 h-100">
+                      <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                          <span>👤 Top 10 Usuários</span>
+                          <span>Resenhas</span>
+                      </div>
+                      <div class="list-group list-group-flush small">
+                          {% for user in eda.top_10_users %}
+                              <div class="list-group-item d-flex justify-content-between align-items-center border-bottom-0">
+                                  <span class="text-truncate" style="max-width: 85%;">{{ forloop.counter }}. {{ user.usuario }}</span>
+                                  <span class="badge bg-secondary rounded-pill">{{ user.qtd }}</span>
+                              </div>
+                          {% endfor %}
+                      </div>
+                  </div>
+              </div>
+
+              <div class="col-12">
+                  <div class="card shadow-sm border-0">
+                      <div class="card-header bg-white fw-bold">⭐ Avaliações Mais Úteis</div>
+                      <div class="card-body p-0">
+                          <div class="list-group list-group-flush">
+                              {% for util in eda.avaliacoes_uteis %}
+                                  <div class="list-group-item py-3">
+                                      <div class="d-flex w-100 justify-content-between mb-1">
+                                          <strong class="text-dark">{{ util.titulo }}</strong>
+                                          <span class="badge bg-success">Útil para: {{ util.helpfulness }}</span>
+                                      </div>
+                                      <p class="mb-1 text-muted small">"{{ util.texto }}"</p>
+                                      <small class="text-warning fw-bold">Nota dada: {{ util.score }}</small>
+                                  </div>
+                              {% endfor %}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- BLOCO 5: VISUALIZAÇÕES (Duas colunas, imagens horizontais) -->
+          <h4 class="fw-bold mb-3 mt-5 border-bottom pb-2">📈 Visualizações Gráficas</h4>
+          <div class="row g-4">
+              <div class="col-md-6">
+                  <div class="card shadow-sm border-0 text-center p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                      <h6 class="fw-bold mb-3 text-muted">6 e 16. Distribuição das Notas</h6>
+                      {% if eda.grafico_notas %}
+                          <img src="data:image/png;base64,{{ eda.grafico_notas }}" class="img-fluid rounded">
+                      {% endif %}
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card shadow-sm border-0 text-center p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                      <h6 class="fw-bold mb-3 text-muted">7. Preço vs Nota (Scatter)</h6>
+                      {% if eda.grafico_scatter %}
+                          <img src="data:image/png;base64,{{ eda.grafico_scatter }}" class="img-fluid rounded">
+                      {% endif %}
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card shadow-sm border-0 text-center p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                      <h6 class="fw-bold mb-3 text-muted">17. Variação de Preço por Nota (Boxplot)</h6>
+                      {% if eda.grafico_boxplot %}
+                          <img src="data:image/png;base64,{{ eda.grafico_boxplot }}" class="img-fluid rounded">
+                      {% endif %}
+                  </div>
+              </div>
+              <div class="col-md-6">
+                  <div class="card shadow-sm border-0 text-center p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                      <h6 class="fw-bold mb-2 text-muted">8 e 20. Evolução Temporal</h6>
+                      <div class="small text-muted mb-2">Meses de Pico: 
+                          {% for mes in eda.meses_pico %} 
+                              <span class="badge bg-light text-dark border">{{ mes.periodo }} ({{ mes.qtd }})</span> 
+                          {% endfor %}
+                      </div>
+                      {% if eda.grafico_temporal %}
+                          <img src="data:image/png;base64,{{ eda.grafico_temporal }}" class="img-fluid rounded">
+                      {% endif %}
+                  </div>
+              </div>
+              <div class="col-12">
+                  <div class="card shadow-sm border-0 text-center p-3">
+                      <h6 class="fw-bold mb-3 text-muted">22. Nuvem de Palavras (Termos Frequentes)</h6>
+                      {% if eda.grafico_nuvem %}
+                          <img src="data:image/png;base64,{{ eda.grafico_nuvem }}" class="img-fluid rounded" style="max-height: 350px; object-fit: contain;">
+                      {% else %}
+                          <p class="text-muted my-4">Textos insuficientes para gerar a nuvem.</p>
+                      {% endif %}
+                  </div>
+              </div>
+          </div>
+          <!-- NOVO CARD: ANÁLISE GLOBAL DE SENTIMENTOS (NLP) -->
+          <div class="col-12 mb-4">
+              <div class="card shadow-sm border-0 bg-white">
+                  <div class="card-header bg-light border-bottom py-2 d-flex justify-content-between align-items-center">
+                      <span class="fw-bold text-secondary small">🤖 Análise Global de Sentimentos (NLP / VADER)</span>
+                      <span class="badge bg-white text-dark border fw-normal">Dataset Mapeado</span>
+                  </div>
+                  <div class="card-body p-3">
+                      <div class="row align-items-center g-3">
+                          
+                          <!-- Distribuição das categorias (Positivas, Neutras, Negativas) -->
+                          <div class="col-md-7 border-end">
+                              <small class="text-uppercase fw-semibold text-muted d-block mb-2">Distribuição de Avaliações</small>
+                              <div class="d-flex flex-wrap gap-2">
+                                  <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6">
+                                      🟢 Positivas: <strong>{{ eda.total_positivas|default:"0" }}</strong>
+                                  </span>
+                                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2 fs-6">
+                                      ⚪ Neutras: <strong>{{ eda.total_neutras|default:"0" }}</strong>
+                                  </span>
+                                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fs-6">
+                                      🔴 Negativas: <strong>{{ eda.total_negativas|default:"0" }}</strong>
+                                  </span>
+                              </div>
+                          </div>
+
+                          <!-- Métricas Consolidadas (Compound & Classificação) -->
+                          <div class="col-md-5 ps-md-4">
+                              <div class="d-flex justify-content-between align-items-center">
+                                  <div>
+                                      <small class="text-uppercase fw-semibold text-muted d-block mb-1">Média do Compound Score</small>
+                                      <span class="fs-4 fw-bold text-dark">{{ eda.media_compound|default:"0.0000" }}</span>
+                                  </div>
+                                  <div class="text-end">
+                                      <small class="text-uppercase fw-semibold text-muted d-block mb-1">Classificação Geral</small>
+                                      <span class="badge bg-dark text-white px-3 py-2 fs-6">{{ eda.sentimento_geral_rotulo|default:"Neutra ⚪" }}</span>
+                                  </div>
+                              </div>
+                          </div>
+
+                      </div>
+                  </div>
+              </div>
+          </div>
+
       </div>
-    </div>
+</div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script href="{% static 'js/script.js' %}"></script>
   </body>

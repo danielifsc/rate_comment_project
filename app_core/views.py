@@ -77,7 +77,7 @@ def pre_processamento(text):
 
 
 
-    print(stop_words)
+   # print(stop_words)
 
     tokens_processados = [
         lemmatizer.lemmatize(word)
@@ -116,9 +116,9 @@ def analyze_user_comment(text):
     else:
         sentiment_processado = 'Neutro'    
     
-    print(f"Analisou{sentiment_normal}")
-    print("--------")
-    print(f"Analisou{sentiment_processado}")
+    #print(f"Analisou{sentiment_normal}")
+    #print("--------")
+    #print(f"Analisou{sentiment_processado}")
     
     return {
         'original_text': text,
@@ -133,6 +133,7 @@ def analyze_user_comment(text):
 
 # --- Função auxiliar para converter gráficos em imagem Base64 ---
 def get_graph():
+    """Função auxiliar para converter gráficos do matplotlib em base64"""
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight')
     buffer.seek(0)
@@ -146,7 +147,7 @@ def gerar_analise_dados(df):
     if df.empty:
         return context
 
-    # Conversões preliminares
+    # Pré-processamento
     if 'review_time' in df.columns:
         df['review_time_dt'] = pd.to_datetime(df['review_time'], unit='s', errors='coerce')
     if 'price' in df.columns:
@@ -154,43 +155,109 @@ def gerar_analise_dados(df):
     if 'review_score' in df.columns:
         df['review_score'] = pd.to_numeric(df['review_score'], errors='coerce')
 
-    # --- 1. ESTRUTURA E TOTAIS ---
-    context['total_avaliacoes'] = df.shape[0]
-    
-    # --- 2. LIVROS E PREÇOS ---
-    if 'price' in df.columns:
-        context['preco_medio'] = round(df['price'].mean(), 2) if not df['price'].dropna().empty else 0
-        
-        # O livro mais caro
-        if not df['price'].dropna().empty:
-            idx_max = df['price'].idxmax()
-            livro_max = df.loc[idx_max]
-            context['livro_mais_caro'] = {
-                'titulo': livro_max.get('title', 'Título Desconhecido'),
-                'preco': livro_max['price']
-            }
+    # 1. VISÃO GERAL (Registros, colunas e tipos)
+    context['total_linhas'] = df.shape[0]
+    context['total_colunas'] = df.shape[1]
+    context['tipos_dados'] = [{'coluna': col, 'tipo': str(dtype)} for col, dtype in df.dtypes.items()]
 
-    # --- 3. AVALIAÇÕES ÚTEIS E POSITIVIDADE ---
+    # 2. DADOS FALTANTES
+    nulos = df.isnull().sum()
+    nulos_prop = (df.isnull().sum() / len(df)) * 100
+    df_nulos = pd.DataFrame({'quantidade': nulos, 'proporcao': nulos_prop})
+    df_nulos = df_nulos[df_nulos['quantidade'] > 0].sort_values(by='quantidade', ascending=False)
+    context['dados_faltantes'] = [{'coluna': idx, 'qtd': row['quantidade'], 'prop': round(row['proporcao'], 2)} for idx, row in df_nulos.iterrows()]
+
+    # 3. COLUNAS MAIS IMPORTANTES
+    context['analise_colunas'] = (
+        "As colunas mais relevantes são 'review_score' (mede a satisfação direta), 'review_text' (permite análise de sentimentos e tópicos), "
+        "'price' (ajuda a entender a relação custo-benefício) e 'review_helpfulness' (indica a confiabilidade da avaliação para a comunidade)."
+    )
+
+    # 4 e 18. LIVROS MAIS POPULARES / TOP 10 AVALIADOS
+    if 'title' in df.columns:
+        top_books = df['title'].value_counts().head(10).reset_index()
+        top_books.columns = ['titulo', 'qtd_avaliacoes']
+        context['top_10_livros'] = top_books.to_dict('records')
+        context['livros_unicos'] = df['title'].nunique() # 10. Livros únicos
+        context['media_avals_por_livro'] = round(context['total_linhas'] / context['livros_unicos'], 2) if context['livros_unicos'] > 0 else 0 # 16. Média avaliações/livro
+
+    # 5, 11 e 12. PREÇOS
+    if 'price' in df.columns:
+        context['preco_medio'] = round(df['price'].mean(), 2)
+        context['livro_mais_caro'] = df.loc[df['price'].idxmax()]['title'] if not df['price'].dropna().empty else "-"
+        context['preco_mais_caro'] = df['price'].max()
+        context['livros_preco_zero'] = len(df[df['price'] == 0])
+
+    # 6 e 14. DISTRIBUIÇÃO E ESTATÍSTICAS DE NOTAS
     if 'review_score' in df.columns:
+        context['media_notas'] = round(df['review_score'].mean(), 2)
+        context['mediana_notas'] = df['review_score'].median()
+        context['desvio_notas'] = round(df['review_score'].std(), 2)
+
         pos = len(df[df['review_score'] >= 4])
         neg = len(df[df['review_score'] <= 2])
-        neu = len(df[df['review_score'] == 3])
-        
-        if pos > neg:
-            context['comentario_sentimento'] = f"Há predominância de avaliações POSITIVAS ({pos} positivas vs {neg} negativas)."
-        else:
-            context['comentario_sentimento'] = f"Há predominância de avaliações NEGATIVAS ({neg} negativas vs {pos} positivas)."
+        context['comentario_sentimento'] = f"Há predominância de avaliações {'POSITIVAS' if pos > neg else 'NEGATIVAS'} ({pos} positivas vs {neg} negativas)."
 
+        # Gráfico 1: Barras de Notas
+        plt.figure(figsize=(6, 4))
+        sns.countplot(x='review_score', data=df, hue='review_score', palette='viridis', legend=False)
+        plt.title('Distribuição das Notas (Review Score)')
+        plt.xlabel('Nota')
+        plt.ylabel('Frequência')
+        context['grafico_notas'] = get_graph()
+
+    # 7 e 15. RELAÇÃO PREÇO vs NOTA (e BOXPLOT)
+    if 'price' in df.columns and 'review_score' in df.columns:
+        correlacao = df['price'].corr(df['review_score'])
+        context['correlacao_preco_nota'] = round(correlacao, 3)
+        context['analise_correlacao'] = "Sim, há forte correlação" if abs(correlacao) > 0.5 else "Não há uma tendência forte de que livros mais caros recebam notas melhores, a correlação é fraca."
+
+        # Gráfico 2: Dispersão (Scatter)
+        plt.figure(figsize=(6, 4))
+        sns.scatterplot(x='price', y='review_score', data=df, alpha=0.5, color='#198754')
+        plt.title('Dispersão: Preço vs Nota')
+        context['grafico_scatter'] = get_graph()
+
+        # Gráfico 3: Boxplot (Preço por Nota Média)
+        plt.figure(figsize=(6, 4))
+        sns.boxplot(x='review_score', y='price', data=df, hue='review_score', palette='Set2', legend=False)
+        plt.title('Variação de Preço por Nota (Boxplot)')
+        context['grafico_boxplot'] = get_graph()
+
+    # 8 e 20. TEMPO E EVOLUÇÃO
+    if 'review_time_dt' in df.columns:
+        df['ano_mes'] = df['review_time_dt'].dt.to_period('M')
+        avals_tempo = df.groupby('ano_mes').size()
+        
+        # Gráfico 4: Evolução Temporal
+        plt.figure(figsize=(8, 4))
+        avals_tempo.plot(color='#0d6efd', linewidth=2)
+        plt.title('Evolução Temporal das Avaliações')
+        plt.xlabel('Ano/Mês')
+        plt.ylabel('Quantidade')
+        context['grafico_temporal'] = get_graph()
+
+        # Meses de pico
+        top_meses = avals_tempo.sort_values(ascending=False).head(3)
+        context['meses_pico'] = [{'periodo': str(p), 'qtd': q} for p, q in top_meses.items()]
+
+    # 9 e 19. USUÁRIOS
+    col_user = 'profile_name' if 'profile_name' in df.columns else ('user_id' if 'user_id' in df.columns else None)
+    if col_user:
+        top_users = df[col_user].value_counts().head(10).reset_index()
+        top_users.columns = ['usuario', 'qtd']
+        context['top_10_users'] = top_users.to_dict('records')
+        context['padrao_usuarios'] = "Muitos usuários aparecem como 'A Customer' (anônimos) e percebe-se um padrão de super-avaliadores, onde poucos usuários concentram muitas resenhas."
+
+    # 21. AVALIAÇÕES MAIS ÚTEIS
     if 'review_helpfulness' in df.columns:
-        # Lógica: converte '3/4' em 0.75. Dá prioridade a resenhas com mais de 3 votos no total para ser relevante
         def calc_help(val):
             try:
                 num, den = str(val).split('/')
-                num, den = int(num), int(den)
-                return (num / den) if den >= 3 else 0
+                return (int(num) / int(den)) if int(den) > 0 else 0
             except:
                 return 0
-                
+        
         df['help_score'] = df['review_helpfulness'].apply(calc_help)
         uteis = df.nlargest(5, 'help_score')
         context['avaliacoes_uteis'] = []
@@ -199,52 +266,54 @@ def gerar_analise_dados(df):
                 'titulo': row.get('title', 'Sem título'),
                 'score': row.get('review_score', '-'),
                 'helpfulness': row['review_helpfulness'],
-                'texto': str(row.get('review_text', ''))[:150] + '...' # Trunca para não quebrar o layout
+                'texto': str(row.get('review_text', ''))[:100] + '...'
             })
 
-    # --- 4. TEMPO (MESES DE PICO) ---
-    if 'review_time_dt' in df.columns:
-        df['ano_mes'] = df['review_time_dt'].dt.to_period('M')
-        avals_tempo = df.groupby('ano_mes').size()
+    # 22. NUVEM DE PALAVRAS
+    col_texto = 'review_summary' if 'review_summary' in df.columns else ('review_text' if 'review_text' in df.columns else None)
+    if col_texto:
+        texto_completo = " ".join(df[col_texto].dropna().astype(str).tolist())
+        if texto_completo.strip():
+            wordcloud = WordCloud(width=800, height=400, background_color='white', max_words=100).generate(texto_completo)
+            plt.figure(figsize=(8, 4))
+            plt.imshow(wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            context['grafico_nuvem'] = get_graph()
+            
+    # --- ANÁLISE GLOBAL DE SENTIMENTOS (VADER) ---
+    col_texto = 'review_text' if 'review_text' in df.columns else ('review_summary' if 'review_summary' in df.columns else None)
+    
+    if col_texto and col_texto in df.columns:
+        def obter_compound(texto):
+            if not texto or not isinstance(texto, str):
+                return 0.0
+            texto_limpo = pre_processamento(texto)
+            return sia.polarity_scores(texto_limpo)['compound']
+
+        # Calcula o compound score para cada registro
+        df['compound_score'] = df[col_texto].apply(obter_compound)
         
-        # Gráfico temporal
-        plt.figure(figsize=(8,3.5))
-        avals_tempo.plot(color='#0d6efd', linewidth=2)
-        plt.title('Evolução Temporal')
-        plt.xlabel('Data')
-        plt.ylabel('Avaliações')
-        context['grafico_temporal'] = get_graph()
-
-        # Top 3 meses com mais avaliações
-        top_meses = avals_tempo.sort_values(ascending=False).head(3)
-        context['meses_mais_ativos'] = [{'periodo': str(p), 'qtd': q} for p, q in top_meses.items()]
-
-    # --- 5. USUÁRIOS E PADRÕES ---
-    col_user = 'profile_name' if 'profile_name' in df.columns else ('user_id' if 'user_id' in df.columns else None)
-    if col_user:
-        top_users = df[col_user].value_counts().head(5).reset_index()
-        top_users.columns = ['usuario', 'qtd']
-        context['top_10_users'] = top_users.to_dict('records')
+        # Contagem das categorias
+        pos_count = int((df['compound_score'] >= 0.05).sum())
+        neg_count = int((df['compound_score'] <= -0.05).sum())
+        neu_count = int(len(df) - (pos_count + neg_count))
         
-        # Padrão detectado
-        context['padrao_usuarios'] = (
-            "Observa-se com frequência o nome 'A Customer' ou perfis anônimos liderando a lista. "
-            "Isso ocorre pois muitos usuários não configuram perfil público. Além disso, existe o padrão de "
-            "'Super Reviewers' (Lei de Pareto), onde poucos usuários dedicados fazem dezenas de avaliações."
-        )
+        # Média geral do compound
+        media_comp = round(float(df['compound_score'].mean()), 4)
+        
+        # Classificação geral baseada na média
+        if media_comp >= 0.05:
+            sent_geral = 'Positiva 🟢'
+        elif media_comp <= -0.05:
+            sent_geral = 'Negativa 🔴'
+        else:
+            sent_geral = 'Neutra ⚪'
 
-    # --- 6. GRÁFICOS RESTANTES ---
-    if 'review_score' in df.columns:
-        plt.figure(figsize=(6,3.5))
-        sns.countplot(x='review_score', data=df, palette='viridis')
-        plt.title('Distribuição de Notas')
-        context['grafico_notas'] = get_graph()
-
-    if 'price' in df.columns and 'review_score' in df.columns:
-        plt.figure(figsize=(6,3.5))
-        sns.scatterplot(x='price', y='review_score', data=df, alpha=0.5, color='#198754')
-        plt.title('Preço vs Nota')
-        context['grafico_scatter'] = get_graph()
+        context['total_positivas'] = pos_count
+        context['total_neutras'] = neu_count
+        context['total_negativas'] = neg_count
+        context['media_compound'] = media_comp
+        context['sentimento_geral_rotulo'] = sent_geral
 
     return context
 
@@ -268,7 +337,7 @@ def home(request):
     df = pd.DataFrame(list(livros_qs))
     eda = gerar_analise_dados(df)
 
-    df_html = get_dataframe(limit=50)
+    df_html = gerar_tabela_html_com_sentimentos(df, limite=50)
 
 
     context = {
@@ -279,3 +348,52 @@ def home(request):
     }
 
     return render(request, 'home.html', context)
+
+
+def calcular_sentimento_linha(texto):
+    """
+    Recebe um texto, passa pela sua função analyze_user_comment e retorna 
+    uma Series do Pandas com a Pontuação e a Classificação visual.
+    """
+    analise = analyze_user_comment(texto)
+    
+    if analise:
+        score = analise['scores_processado']['compound']
+        sentimento = analise['sentiment_processado']
+        
+        if sentimento == 'Positivo':
+            sentimento_visual = 'Positiva 🟢'
+        elif sentimento == 'Negativo':
+            sentimento_visual = 'Negativa 🔴'
+        else:
+            sentimento_visual = 'Neutra ⚪'
+            
+        return pd.Series([round(score, 4), sentimento_visual])
+    
+    # Fallback caso a análise falhe ou retorne vazio
+    return pd.Series([0.0, 'Neutra ⚪'])
+
+def gerar_tabela_html_com_sentimentos(df, limite=50):
+    """
+    Recebe o DataFrame completo, aplica o limite de linhas para a tela,
+    gera as colunas de sentimento e retorna a string HTML da tabela.
+    """
+    df_table = df.head(limite).copy()
+    col_texto = 'review_text' if 'review_text' in df_table.columns else 'review_summary'
+
+    if col_texto not in df_table.columns:
+        return "<p>Sem dados de texto para exibir.</p>"
+
+    # Aplica a função de linha para criar as novas colunas
+    df_table[['Pontuação Geral', 'Análise de Sentimento']] = df_table[col_texto].apply(calcular_sentimento_linha)
+
+    # Remove colunas auxiliares geradas pela função EDA para não poluir a tela
+    colunas_indesejadas = ['review_time_dt', 'ano_mes', 'help_score']
+    colunas_exibicao = [c for c in df_table.columns if c not in colunas_indesejadas]
+    
+    # Retorna o HTML estilizado
+    return df_table[colunas_exibicao].to_html(
+        classes='table table-sm table-striped table-hover border text-start mt-3', 
+        index=False,
+        justify='left'
+    )
