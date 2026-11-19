@@ -12,3 +12,4 @@ matplotlib
 seaborn
 wordcloud
 Pillow
+scikit-learn

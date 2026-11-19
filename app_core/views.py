@@ -18,6 +18,12 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+
+
 from .models import Avaliacao
 
 #analise de sentimento
@@ -130,6 +136,23 @@ def analyze_user_comment(text):
         'sentiment_processado': sentiment_processado,
         'scores_processado': scores_processado
     }
+
+def formatar_df_para_html(df_origem, limite=50):
+  """Formata um DataFrame (VADER, BoW ou TF-IDF) para exibição limpa no template."""
+  df_table = df_origem.head(limite).copy()
+  colunas_indesejadas = ['review_time_dt', 'ano_mes', 'help_score']
+  colunas_exibicao = [
+      c for c in df_table.columns if c not in colunas_indesejadas
+  ]
+
+  return df_table[colunas_exibicao].to_html(
+      classes=(
+          'table table-sm table-striped table-hover border text-start mt-3'
+      ),
+      index=False,
+      justify='left',
+  )
+
 
 # --- Função auxiliar para converter gráficos em imagem Base64 ---
 def get_graph():
@@ -281,39 +304,149 @@ def gerar_analise_dados(df):
             context['grafico_nuvem'] = get_graph()
             
     # --- ANÁLISE GLOBAL DE SENTIMENTOS (VADER) ---
-    col_texto = 'review_text' if 'review_text' in df.columns else ('review_summary' if 'review_summary' in df.columns else None)
-    
+    col_texto = (
+        'review_text'
+        if 'review_text' in df.columns
+        else ('review_summary' if 'review_summary' in df.columns else None)
+    )
+
     if col_texto and col_texto in df.columns:
-        def obter_compound(texto):
-            if not texto or not isinstance(texto, str):
-                return 0.0
-            texto_limpo = pre_processamento(texto)
-            return sia.polarity_scores(texto_limpo)['compound']
+      # Aplica a sua função pre_processamento uma única vez para ganhar performance
+      textos_limpos = df[col_texto].fillna('').apply(pre_processamento)
 
-        # Calcula o compound score para cada registro
-        df['compound_score'] = df[col_texto].apply(obter_compound)
-        
-        # Contagem das categorias
-        pos_count = int((df['compound_score'] >= 0.05).sum())
-        neg_count = int((df['compound_score'] <= -0.05).sum())
-        neu_count = int(len(df) - (pos_count + neg_count))
-        
-        # Média geral do compound
-        media_comp = round(float(df['compound_score'].mean()), 4)
-        
-        # Classificação geral baseada na média
-        if media_comp >= 0.05:
-            sent_geral = 'Positiva 🟢'
-        elif media_comp <= -0.05:
-            sent_geral = 'Negativa 🔴'
-        else:
-            sent_geral = 'Neutra ⚪'
+      # ======================================================================
+      # 1. ANÁLISE ISOLADA: VADER
+      # ======================================================================
+      df_vader = df.copy()
+      df_vader['Pontuação Geral'] = textos_limpos.apply(
+          lambda t: round(sia.polarity_scores(t)['compound'], 4)
+      )
+      df_vader['Análise de Sentimento'] = df_vader['Pontuação Geral'].apply(
+          lambda s: 'Positiva 🟢'
+          if s >= 0.05
+          else ('Negativa 🔴' if s <= -0.05 else 'Neutra ⚪')
+      )
 
-        context['total_positivas'] = pos_count
-        context['total_neutras'] = neu_count
-        context['total_negativas'] = neg_count
-        context['media_compound'] = media_comp
-        context['sentimento_geral_rotulo'] = sent_geral
+      # Atualiza o df original para manter a compatibilidade com o restante da sua view
+      df['compound_score'] = df_vader['Pontuação Geral']
+
+      # Contagens e médias para o seu template HTML (context)
+      pos_count = int((df_vader['Pontuação Geral'] >= 0.05).sum())
+      neg_count = int((df_vader['Pontuação Geral'] <= -0.05).sum())
+      neu_count = int(len(df_vader) - (pos_count + neg_count))
+      media_comp = round(float(df_vader['Pontuação Geral'].mean()), 4)
+
+      if media_comp >= 0.05:
+        sent_geral = 'Positiva 🟢'
+      elif media_comp <= -0.05:
+        sent_geral = 'Negativa 🔴'
+      else:
+        sent_geral = 'Neutra ⚪'
+
+      context['total_positivas'] = pos_count
+      context['total_neutras'] = neu_count
+      context['total_negativas'] = neg_count
+      context['media_compound'] = media_comp
+      context['sentimento_geral_rotulo'] = sent_geral
+
+      # Exporta CSV 1 (VADER)
+      df_vader.to_csv('analise_1_vader.csv', index=False, encoding='utf-8-sig')
+      context['html_vader'] = formatar_df_para_html(df_vader, limite=50)  
+      # ======================================================================
+      # PREPARAÇÃO PARA MODELOS SUPERVISIONADOS (BoW e TF-IDF)
+      # ======================================================================
+      if 'review_score' in df.columns:
+
+        def rotulo_estrelas(nota):
+          if nota >= 4.0:
+            return 'Positiva 🟢'
+          elif nota <= 2.0:
+            return 'Negativa 🔴'
+          else:
+            return 'Neutra ⚪'
+
+        gabarito = df['review_score'].apply(rotulo_estrelas)
+        X_train, X_test, y_train, y_test = train_test_split(
+            textos_limpos, gabarito, test_size=0.2, random_state=42
+        )
+
+        # ==================================================================
+        # 2. ANÁLISE ISOLADA: BAG OF WORDS
+        # ==================================================================
+        df_bow = df.copy()
+        vec_bow = CountVectorizer(max_features=2000)
+        X_train_bow = vec_bow.fit_transform(X_train)
+
+        modelo_bow = MultinomialNB()
+        modelo_bow.fit(X_train_bow, y_train)
+
+        X_total_bow = vec_bow.transform(textos_limpos)
+        # Pontuação Geral aqui representa a probabilidade (confiança) da previsão (0 a 1)
+        df_bow['Pontuação Geral'] = (
+            modelo_bow.predict_proba(X_total_bow).max(axis=1).round(4)
+        )
+        df_bow['Análise de Sentimento'] = modelo_bow.predict(X_total_bow)
+
+        # Salva métricas no context caso queira exibir no HTML
+        context['bow_acuracia'] = round(
+            accuracy_score(y_test, modelo_bow.predict(vec_bow.transform(X_test)))
+            * 100,
+            2,
+        )
+        context['bow_positivas'] = int(
+            (df_bow['Análise de Sentimento'] == 'Positiva 🟢').sum()
+        )
+        context['bow_neutras'] = int(
+            (df_bow['Análise de Sentimento'] == 'Neutra ⚪').sum()
+        )
+        context['bow_negativas'] = int(
+            (df_bow['Análise de Sentimento'] == 'Negativa 🔴').sum()
+        )
+
+        # Exporta CSV 2 (Bag of Words)
+        df_bow.to_csv(
+            'analise_2_bag_of_words.csv', index=False, encoding='utf-8-sig'
+        )
+        context['html_bow'] = formatar_df_para_html(df_bow, limite=50)
+        # ==================================================================
+        # 3. ANÁLISE ISOLADA: TF-IDF
+        # ==================================================================
+        df_tfidf = df.copy()
+        vec_tfidf = TfidfVectorizer(max_features=2000)
+        X_train_tfidf = vec_tfidf.fit_transform(X_train)
+
+        modelo_tfidf = MultinomialNB()
+        modelo_tfidf.fit(X_train_tfidf, y_train)
+
+        X_total_tfidf = vec_tfidf.transform(textos_limpos)
+        df_tfidf['Pontuação Geral'] = (
+            modelo_tfidf.predict_proba(X_total_tfidf).max(axis=1).round(4)
+        )
+        df_tfidf['Análise de Sentimento'] = modelo_tfidf.predict(X_total_tfidf)
+
+        # Salva métricas no context caso queira exibir no HTML
+        context['tfidf_acuracia'] = round(
+            accuracy_score(
+                y_test, modelo_tfidf.predict(vec_tfidf.transform(X_test))
+            )
+            * 100,
+            2,
+        )
+        context['tfidf_positivas'] = int(
+            (df_tfidf['Análise de Sentimento'] == 'Positiva 🟢').sum()
+        )
+        context['tfidf_neutras'] = int(
+            (df_tfidf['Análise de Sentimento'] == 'Neutra ⚪').sum()
+        )
+        context['tfidf_negativas'] = int(
+            (df_tfidf['Análise de Sentimento'] == 'Negativa 🔴').sum()
+        )
+
+        # Exporta CSV 3 (TF-IDF)
+        df_tfidf.to_csv(
+            'analise_3_tfidf.csv', index=False, encoding='utf-8-sig'
+        )
+        context['html_tfidf'] = formatar_df_para_html(df_tfidf, limite=50)
 
     return context
 

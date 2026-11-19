@@ -121,15 +121,63 @@
 
       <div class="card shadow-sm mt-4">
         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-          <span class="fw-bold small text-muted">DataFrame</span>
+            <div class="d-flex align-items-center gap-3">
+            <span class="fw-bold small text-muted">DataFrames por Modelo</span>
+            
+            <!-- Abas de Navegação -->
+            <ul class="nav nav-pills nav-fill small" id="modelosTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                <button class="nav-link active py-1 px-3" id="vader-tab" data-bs-toggle="tab" data-bs-target="#vader-pane" type="button" role="tab">
+                    VADER
+                </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 px-3" id="bow-tab" data-bs-toggle="tab" data-bs-target="#bow-pane" type="button" role="tab">
+                    Bag of Words
+                </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                <button class="nav-link py-1 px-3" id="tfidf-tab" data-bs-toggle="tab" data-bs-target="#tfidf-pane" type="button" role="tab">
+                    TF-IDF
+                </button>
+                </li>
+            </ul>
+            </div>
 
-          <button type="button" id="toggleTextBtn" class="btn btn-sm btn-outline-secondary">🔍 Expandir Texto Completo</button>
+            <button type="button" id="toggleTextBtn" class="btn btn-sm btn-outline-secondary">
+            🔍 Expandir Texto Completo
+            </button>
         </div>
 
         <div class="card-body p-2">
-           <div class="jupyter-output" id="jupyterContainer">{{ df_html|safe }}</div>
-         </div>
-      </div>
+            <div class="tab-content" id="modelosTabContent">
+            
+            <!-- Aba 1: VADER -->
+            <div class="tab-pane fade show active" id="vader-pane" role="tabpanel" tabindex="0">
+                <div class="jupyter-output table-responsive">{{ eda.html_vader|safe }}</div>
+            </div>
+
+            <!-- Aba 2: Bag of Words -->
+            <div class="tab-pane fade" id="bow-pane" role="tabpanel" tabindex="0">
+                {% if eda.html_bow %}
+                <div class="jupyter-output table-responsive">{{ eda.html_bow|safe }}</div>
+                {% else %}
+                <p class="text-muted text-center my-3">Dados insuficientes para treinar o modelo Bag of Words.</p>
+                {% endif %}
+            </div>
+
+            <!-- Aba 3: TF-IDF -->
+            <div class="tab-pane fade" id="tfidf-pane" role="tabpanel" tabindex="0">
+                {% if eda.html_tfidf %}
+                <div class="jupyter-output table-responsive">{{ eda.html_tfidf|safe }}</div>
+                {% else %}
+                <p class="text-muted text-center my-3">Dados insuficientes para treinar o modelo TF-IDF.</p>
+                {% endif %}
+            </div>
+
+            </div>
+        </div>
+</div>
 
      <!-- Seção: Dashboard de Análise Exploratória -->
       <div class="container my-5">
